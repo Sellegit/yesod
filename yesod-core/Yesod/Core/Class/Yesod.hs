@@ -518,6 +518,16 @@ defaultErrorHandler (BadMethod m) = selectRep $ do
         |]
     provideRep $ return $ object ["message" .= ("Bad method" :: Text), "method" .= TE.decodeUtf8With TEE.lenientDecode m]
 
+defaultErrorHandler (TypedError t message status) = selectRep $ do
+    provideRep $ defaultLayout $ do
+        setTitle"Unhandled type error"
+        toWidget [hamlet|
+            <h1>Unhandled type error
+            <p>Error type: #{t}
+        |]
+    provideRep $ return $ object ["message" .= ("Unhandled type error" :: Text), "error_type" .= t, "error_message" .= message]
+
+
 asyncHelper :: (url -> [x] -> Text)
          -> [Script (url)]
          -> Maybe (JavascriptUrl (url))

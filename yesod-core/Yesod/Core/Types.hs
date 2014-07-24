@@ -68,6 +68,7 @@ import           Yesod.Routes.Class                 (RenderRoute (..), ParseRout
 import           Control.Monad.Reader               (MonadReader (..))
 import Prelude hiding (catch)
 import Control.DeepSeq (NFData (rnf))
+import Data.Aeson.Types (Pair)
 
 -- Sessions
 type SessionMap = Map Text ByteString
@@ -307,6 +308,7 @@ data ErrorResponse =
     | NotAuthenticated
     | PermissionDenied Text
     | BadMethod H.Method
+    | TypedError Text [Pair] H.Status
     deriving (Show, Eq, Typeable)
 
 ----- header stuff
