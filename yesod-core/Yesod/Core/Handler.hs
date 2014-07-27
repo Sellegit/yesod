@@ -264,7 +264,8 @@ runRequestBody = do
 #else
             rbc <- liftResourceT $ rbHelper upload rr
 #endif
-            put x { ghsRBC = Just rbc }
+            x' <- get
+            put x' { ghsRBC = Just rbc }
             return rbc
 
 #if MIN_VERSION_wai(2, 0, 0)
@@ -840,7 +841,8 @@ newIdent :: MonadHandler m => m Text
 newIdent = do
     x <- get
     let i' = ghsIdent x + 1
-    put x { ghsIdent = i' }
+    x' <- get
+    put x' { ghsIdent = i' }
     return $ T.pack $ "hident" ++ show i'
 
 -- | Redirect to a POST resource.
