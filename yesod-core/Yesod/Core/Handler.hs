@@ -910,7 +910,8 @@ cached f = do
         Just val -> return val
         Nothing -> do
             val <- f
-            put $ gs { ghsCache = cinsert val cache }
+            gs' <- get
+            put $ gs' { ghsCache = cinsert val cache }
             return val
   where
     clookup :: Typeable a => Cache -> Maybe a
