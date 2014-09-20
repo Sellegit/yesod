@@ -1,4 +1,5 @@
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -33,6 +34,7 @@ module Yesod.Form.Functions
     , renderDivs
     , renderDivsNoLabels
     , renderBootstrap
+    , renderBootstrap2
       -- * Validation
     , check
     , checkBool
@@ -43,6 +45,7 @@ module Yesod.Form.Functions
     , fieldSettingsLabel
     , parseHelper
     , parseHelperGen
+    , convertField
     ) where
 
 import Yesod.Form.Types
@@ -356,15 +359,21 @@ type FormRender m a =
     -> MForm m (FormResult a, WidgetT (HandlerSite m) IO ())
 
 renderTable, renderDivs, renderDivsNoLabels :: Monad m => FormRender m a
+-- | Render a form into a series of tr tags. Note that, in order to allow
+-- you to add extra rows to the table, this function does /not/ wrap up
+-- the resulting HTML in a table tag; you must do that yourself.
 renderTable aform fragment = do
     (res, views') <- aFormToForm aform
     let views = views' []
     let widget = [whamlet|
 $newline never
-\#{fragment}
-$forall view <- views
+$if null views
+    \#{fragment}
+$forall (isFirst, view) <- addIsFirst views
     <tr :fvRequired view:.required :not $ fvRequired view:.optional>
         <td>
+            $if isFirst
+                \#{fragment}
             <label for=#{fvId view}>#{fvLabel view}
             $maybe tt <- fvTooltip view
                 <div .tooltip>#{tt}
@@ -373,6 +382,9 @@ $forall view <- views
             <td .errors>#{err}
 |]
     return (res, widget)
+  where
+    addIsFirst [] = []
+    addIsFirst (x:y) = (True, x) : map (False, ) y
 
 -- | render a field inside a div
 renderDivs = renderDivsMaybeLabels True
@@ -416,8 +428,10 @@ $forall view <- views
 -- >      ^{formWidget}
 -- >      <div .form-actions>
 -- >        <input .btn .primary type=submit value=_{MsgSubmit}>
-renderBootstrap :: Monad m => FormRender m a
-renderBootstrap aform fragment = do
+--
+-- Since 1.3.14
+renderBootstrap2 :: Monad m => FormRender m a
+renderBootstrap2 aform fragment = do
     (res, views') <- aFormToForm aform
     let views = views' []
         has (Just _) = True
@@ -436,6 +450,10 @@ renderBootstrap aform fragment = do
                                 <span .help-block>#{err}
                 |]
     return (res, widget)
+
+-- | Deprecated synonym for 'renderBootstrap2'.
+renderBootstrap :: Monad m => FormRender m a
+renderBootstrap = renderBootstrap2
 {-# DEPRECATED renderBootstrap "Please use the Yesod.Form.Bootstrap3 module." #-}
 
 check :: (Monad m, RenderMessage (HandlerSite m) msg)
@@ -509,3 +527,28 @@ parseHelperGen :: (Monad m, RenderMessage site msg)
 parseHelperGen _ [] _ = return $ Right Nothing
 parseHelperGen _ ("":_) _ = return $ Right Nothing
 parseHelperGen f (x:_) _ = return $ either (Left . SomeMessage) (Right . Just) $ f x
+
+-- | Since a 'Field' cannot be a 'Functor', it is not obvious how to "reuse" a Field
+-- on a @newtype@ or otherwise equivalent type. This function allows you to convert
+-- a @Field m a@ to a @Field m b@ assuming you provide a bidireccional
+-- convertion among the two, through the first two functions.
+--
+-- A simple example:
+--
+-- > import Data.Monoid
+-- > sumField :: (Functor m, Monad m, RenderMessage (HandlerSite m) FormMessage) => Field m (Sum Int)
+-- > sumField = convertField Sum getSum intField
+--
+-- Another example, not using a newtype, but instead creating a Lazy Text field:
+--
+-- > import qualified Data.Text.Lazy as TL
+-- > TextField :: (Functor m, Monad m, RenderMessage (HandlerSite m) FormMessage) => Field m TL.Text
+-- > lazyTextField = convertField TL.fromStrict TL.toStrict textField
+--
+convertField :: (Functor m)
+             => (a -> b) -> (b -> a)
+             -> Field m a -> Field m b
+convertField to from (Field fParse fView fEnctype) = let
+  fParse' ts = fmap (fmap (fmap to)) . fParse ts
+  fView' ti tn at ei = fView ti tn at (fmap from ei)
+  in Field fParse' fView' fEnctype

@@ -182,7 +182,9 @@ class ( YesodAuth site
     confirmationEmailSentResponse :: Text -> HandlerT site IO TypedContent
     confirmationEmailSentResponse identifier = do
         mr <- getMessageRender
-        messageJson401 (mr msg) $ authLayout $ do
+        selectRep $ do
+            provideJsonMessage (mr msg)
+            provideRep $ authLayout $ do
               setTitleI Msg.ConfirmationEmailSentTitle
               [whamlet|<p>_{msg}|]
       where
@@ -243,11 +245,11 @@ $newline never
         <tr>
             <th>_{Msg.Email}
             <td>
-                <input type="email" name="email">
+                <input type="email" name="email" required>
         <tr>
             <th>_{Msg.Password}
             <td>
-                <input type="password" name="password">
+                <input type="password" name="password" required>
         <tr>
             <td colspan="2">
                 <button type=submit .btn .btn-success>
