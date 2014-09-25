@@ -211,7 +211,7 @@ devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
 
     let (terminator, after) = case terminateWith opts of
           TerminateOnEnter ->
-              ("Press ENTER", void getLine)
+              ("Press ENTER", void getLine `Ex.catch` ((const $ return ()) :: Ex.IOException -> IO ()))
           TerminateOnlyInterrupt ->  -- run for one year
               ("Interrupt", threadDelay $ 1000 * 1000 * 60 * 60 * 24 * 365)
 
